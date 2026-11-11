@@ -74,7 +74,7 @@ jobs:
           status=$(jq -r .status .factory/implementation/output.json)
           echo "status=$status" >> "$GITHUB_OUTPUT"
           [[ "$status" == "done" ]] || exit 0
-          git add -A -- . ':!.factory' ':!test-results' ':!playwright-report'
+          git add -A  # .factory, test-results, playwright-report are gitignored
           if git diff --cached --name-only | grep -E '^(\.github/|factory/|\.claude/|\.specify/|package(-lock)?\.json$)'; then
             echo "::error::Agent modified protected paths"; exit 1
           fi

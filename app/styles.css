@@ -56,6 +56,7 @@ body {
 .todo-item:last-child { border-bottom: 0; }
 .todo-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
 .todo-title { flex: 1; overflow-wrap: anywhere; }
+.todo-edit { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); padding: 4px 8px; }
 .todo-item.completed .todo-title { color: var(--done); text-decoration: line-through; }
 .todo-remove {
   width: 28px; height: 28px; font-size: 20px; line-height: 1; cursor: pointer;

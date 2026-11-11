@@ -20,6 +20,13 @@ export function toggleTodo(todos, id) {
   return todos.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
 }
 
+/** Change a todo's title; an empty/whitespace title removes it. @param {Todo[]} todos @param {string} id @param {string} title @returns {Todo[]} */
+export function editTodo(todos, id, title) {
+  const trimmed = String(title ?? '').trim();
+  if (!trimmed) return todos.filter((t) => t.id !== id);
+  return todos.map((t) => (t.id === id ? { ...t, title: trimmed } : t));
+}
+
 export const FILTERS = ['all', 'active', 'completed'];
 
 /** @param {unknown} value @returns {'all'|'active'|'completed'} */

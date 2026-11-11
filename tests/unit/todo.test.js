@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addTodo, toggleTodo, removeTodo, filterTodos, normalizeFilter } from '../../app/src/todo.js';
+import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter } from '../../app/src/todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter } from '../../app/src/storage.js';
 
 describe('todo logic', () => {
@@ -69,5 +69,22 @@ describe('storage', () => {
     expect(loadFilter(s)).toBe('completed');
     s.setItem('claude-todo-factory.filter', 'garbage');
     expect(loadFilter(s)).toBe('all');
+  });
+});
+
+describe('editTodo', () => {
+  const base = [
+    { id: 'a', title: 'one', completed: true, createdAt: 1 },
+    { id: 'b', title: 'two', completed: false, createdAt: 2 },
+  ];
+  it('changes the title, trims it and keeps completed state', () => {
+    const next = editTodo(base, 'a', '  uno ');
+    expect(next[0]).toEqual({ id: 'a', title: 'uno', completed: true, createdAt: 1 });
+    expect(next[1]).toBe(base[1]);
+    expect(base[0].title).toBe('one');
+  });
+  it('removes the todo when the title is empty or whitespace', () => {
+    expect(editTodo(base, 'a', '   ').map((t) => t.id)).toEqual(['b']);
+    expect(editTodo(base, 'b', '').map((t) => t.id)).toEqual(['a']);
   });
 });

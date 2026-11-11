@@ -1,4 +1,4 @@
-import { addTodo, toggleTodo, removeTodo, filterTodos, normalizeFilter } from './todo.js';
+import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter } from './todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter } from './storage.js';
 
 const form = document.querySelector('[data-testid="new-todo-form"]');
@@ -34,6 +34,15 @@ function renderItem(todo) {
   label.className = 'todo-title';
   label.dataset.testid = 'todo-title';
   label.textContent = todo.title;
+  label.tabIndex = 0;
+  label.title = 'Double-click or press Enter to edit';
+  label.addEventListener('dblclick', () => startEdit(li, label, todo));
+  label.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === 'F2') {
+      event.preventDefault();
+      startEdit(li, label, todo);
+    }
+  });
 
   const remove = document.createElement('button');
   remove.type = 'button';
@@ -45,6 +54,35 @@ function renderItem(todo) {
 
   li.append(checkbox, label, remove);
   return li;
+}
+
+function startEdit(li, label, todo) {
+  const editor = document.createElement('input');
+  editor.type = 'text';
+  editor.className = 'todo-edit';
+  editor.dataset.testid = 'todo-edit-input';
+  editor.value = todo.title;
+  editor.setAttribute('aria-label', `Edit "${todo.title}"`);
+  let finished = false;
+  const finish = (save) => {
+    if (finished) return;
+    finished = true;
+    if (save) setTodos(editTodo(todos, todo.id, editor.value));
+    else render();
+  };
+  editor.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+  editor.addEventListener('blur', () => finish(true));
+  label.replaceWith(editor);
+  editor.focus();
+  editor.select();
 }
 
 const EMPTY_MESSAGES = {

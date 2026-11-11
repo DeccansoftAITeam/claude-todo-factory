@@ -65,4 +65,12 @@ body {
 .empty { margin: 0; padding: 28px 14px; text-align: center; color: var(--muted); }
 .empty[hidden] { display: none; }
 
+.filters { display: flex; justify-content: center; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.filter {
+  padding: 4px 12px; font: inherit; font-size: 0.9rem; cursor: pointer;
+  color: var(--muted); background: none; border: 1px solid transparent; border-radius: 999px;
+}
+.filter:hover { color: var(--ink); border-color: var(--line); }
+.filter[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
+
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

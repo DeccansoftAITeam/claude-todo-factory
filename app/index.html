@@ -23,6 +23,11 @@
       <section class="todos" aria-label="Todos">
         <ul class="todo-list" data-testid="todo-list"></ul>
         <p class="empty" data-testid="empty-state">Nothing to do. Add your first todo above.</p>
+        <div class="filters" role="group" aria-label="Filter todos" data-testid="todo-filters">
+          <button type="button" class="filter" data-filter="all" data-testid="filter-all" aria-pressed="true">All</button>
+          <button type="button" class="filter" data-filter="active" data-testid="filter-active" aria-pressed="false">Active</button>
+          <button type="button" class="filter" data-filter="completed" data-testid="filter-completed" aria-pressed="false">Completed</button>
+        </div>
       </section>
     </main>
     <script type="module" src="src/main.js"></script>

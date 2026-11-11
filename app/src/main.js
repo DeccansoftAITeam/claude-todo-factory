@@ -1,4 +1,4 @@
-import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter } from './todo.js';
+import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from './todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter } from './storage.js';
 
 const form = document.querySelector('[data-testid="new-todo-form"]');
@@ -7,6 +7,13 @@ const list = document.querySelector('[data-testid="todo-list"]');
 const empty = document.querySelector('[data-testid="empty-state"]');
 
 const filterButtons = document.querySelectorAll('[data-testid="todo-filters"] [data-filter]');
+
+const counter = document.querySelector('[data-testid="items-left"]');
+const clearBtn = document.querySelector('[data-testid="clear-completed"]');
+clearBtn.addEventListener('click', () => {
+  setTodos(clearCompleted(todos));
+  input.focus();
+});
 
 let todos = loadTodos();
 let filter = loadFilter();
@@ -102,6 +109,9 @@ function render() {
   list.replaceChildren(...visible.map(renderItem));
   empty.textContent = todos.length === 0 ? EMPTY_MESSAGES.all : EMPTY_MESSAGES[filter];
   empty.hidden = visible.length > 0;
+  const left = countActive(todos);
+  counter.textContent = `${left} ${left === 1 ? 'item' : 'items'} left`;
+  clearBtn.hidden = left === todos.length;
   for (const button of filterButtons) {
     button.setAttribute('aria-pressed', String(button.dataset.filter === filter));
   }

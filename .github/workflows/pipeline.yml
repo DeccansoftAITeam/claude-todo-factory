@@ -50,7 +50,7 @@ jobs:
           else
             echo '{}' > ctx/issue.json
           fi
-          [[ -s ctx/criteria.json ]] || echo '{"acceptance_criteria":["The PR description's described behavior works in the browser."],"ui_change":true}' > ctx/criteria.json
+          [[ -s ctx/criteria.json ]] || echo '{"acceptance_criteria":["The behavior described in the PR works in the browser."],"ui_change":true}' > ctx/criteria.json
           echo "sha=$(jq -r .headRefOid ctx/pr.json)" >> "$GITHUB_OUTPUT"
           echo "branch=$(jq -r .headRefName ctx/pr.json)" >> "$GITHUB_OUTPUT"
           echo "issue=$issue" >> "$GITHUB_OUTPUT"
@@ -142,7 +142,7 @@ jobs:
           EOF
           factory/scripts/claude-run.sh --stage review \
             --prompt-file .factory/prompt.md --schema factory/schemas/review.json \
-            --model "${{ vars.REVIEW_MODEL || 'claude-opus-5-5' }}" --budget 3 \
+            --model "${{ vars.REVIEW_MODEL || 'claude-sonnet-5-5' }}" --budget 3 \
             --tools "Read,Glob,Grep,Skill" --out .factory/review
       - uses: actions/upload-artifact@v4
         if: always()

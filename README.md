@@ -30,8 +30,8 @@ flowchart LR
 | Stage | Workflow | Skill | Model (default) | Agent can… |
 |---|---|---|---|---|
 | Triage | `triage.yml` | `triage` | claude-sonnet-5-5 | read the repo |
-| Implement | `implement.yml` | `implementation` | claude-opus-5-5 | edit files, run `npm test` / Playwright |
-| Review | `pipeline.yml` | `review-pr` | claude-opus-5-5 | read the repo |
+| Implement | `implement.yml` | `implementation` | claude-sonnet-5-5 | edit files, run `npm test` / Playwright |
+| Review | `pipeline.yml` | `review-pr` | claude-sonnet-5-5 | read the repo |
 | Verify (engine) | `pipeline.yml`, `deploy.yml` | `verify-behavior` | claude-sonnet-5-5 | drive a headless browser (Playwright MCP) |
 
 **Agents propose, workflows act.** No agent ever holds a GitHub write token.

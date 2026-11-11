@@ -30,7 +30,7 @@ Playwright MCP against the SWA preview URL, recording video and screenshots.
 **Storage**: browser `localStorage`
 **Testing**: Vitest (logic), Playwright (e2e, local static server)
 **Target Platform**: Azure Static Web Apps (Free), GitHub Actions `ubuntu-latest`
-**Models**: implement/review `claude-opus-5-5`; triage/verify `claude-sonnet-5-5` (overridable via repo variables)
+**Models**: `claude-sonnet-5-5` for every stage (never Opus); overridable via repo variables
 **Constraints**: per-run `--max-budget-usd`; agents read-only to GitHub
 
 ## Constitution Check

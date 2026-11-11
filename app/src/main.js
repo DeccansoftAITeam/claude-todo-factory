@@ -1,5 +1,22 @@
 import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from './todo.js';
-import { loadTodos, saveTodos, loadFilter, saveFilter } from './storage.js';
+import { loadTodos, saveTodos, loadFilter, saveFilter, loadTheme, saveTheme } from './storage.js';
+import { resolveTheme, toggleTheme } from './todo.js';
+
+const themeBtn = document.querySelector('[data-testid="theme-toggle"]');
+let theme = resolveTheme(loadTheme(), window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  const dark = theme === 'dark';
+  themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  themeBtn.textContent = dark ? 'Light' : 'Dark';
+}
+themeBtn.addEventListener('click', () => {
+  theme = toggleTheme(theme);
+  saveTheme(theme);
+  applyTheme();
+});
+applyTheme();
 
 const form = document.querySelector('[data-testid="new-todo-form"]');
 const input = document.querySelector('[data-testid="new-todo-input"]');

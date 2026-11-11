@@ -66,6 +66,10 @@ body {
 .empty { margin: 0; padding: 28px 14px; text-align: center; color: var(--muted); }
 .empty[hidden] { display: none; }
 
+.footer-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--ink); font-size: 0.9rem; }
+.clear-completed { background: none; border: 1px solid transparent; border-radius: 6px; color: var(--ink); cursor: pointer; padding: 4px 8px; font: inherit; }
+.clear-completed:hover { border-color: var(--line); }
+.clear-completed[hidden] { display: none; }
 .filters { display: flex; justify-content: center; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--line); }
 .filter {
   padding: 4px 12px; font: inherit; font-size: 0.9rem; cursor: pointer;

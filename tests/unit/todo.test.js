@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter } from '../../app/src/todo.js';
+import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from '../../app/src/todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter } from '../../app/src/storage.js';
 
 describe('todo logic', () => {

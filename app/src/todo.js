@@ -46,6 +46,16 @@ export function filterTodos(todos, filter) {
   }
 }
 
+/** @param {Todo[]} todos @returns {number} */
+export function countActive(todos) {
+  return todos.filter((t) => !t.completed).length;
+}
+
+/** @param {Todo[]} todos @returns {Todo[]} */
+export function clearCompleted(todos) {
+  return todos.filter((t) => !t.completed);
+}
+
 /** @param {Todo[]} todos @param {string} id @returns {Todo[]} */
 export function removeTodo(todos, id) {
   return todos.filter((t) => t.id !== id);

@@ -34,7 +34,12 @@ commit, push, or call GitHub: the workflow commits your changes and opens the PR
 5. Run `npm test` and `npm run test:e2e`. Fix until both pass.
    **Shell rules:** your Bash access is an allowlist. Run each command on its own,
    exactly as written (`npm test`, `npm run test:e2e`, `npx playwright test tests/e2e/x.spec.js`),
-   from the repo root. Do not use `cd`, `&&`, `;`, pipes or redirects. Those are denied. If you cannot make
+   from the repo root. Do not use `cd`, `&&`, `;`, pipes or redirects. Those are denied.
+   If a command is denied, try the equivalent allowed form (`npm run test:e2e` is the same as
+   `npx playwright test`) before giving up. Edit files with the Edit and Write tools, not with
+   `cat >>` or heredocs. Return `blocked` only when the code is wrong and you cannot fix it. A tool
+   permission problem is never a reason for `blocked`: the workflow re-runs both suites itself, so
+   return `done` and say in the PR body which command you could not run. If you cannot make
    them pass, return `status: "blocked"` and explain.
 6. Run `git status` / `git diff --stat` to confirm only intended files changed.
    Do not touch `.github/`, `factory/`, `.claude/`, `specs/`, or `package.json`

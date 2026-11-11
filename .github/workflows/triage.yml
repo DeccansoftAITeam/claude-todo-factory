@@ -57,7 +57,7 @@ jobs:
           factory/scripts/claude-run.sh --stage triage \
             --prompt-file .factory/prompt.md --schema factory/schemas/triage.json \
             --model "${{ vars.TRIAGE_MODEL || 'claude-sonnet-5-5' }}" --budget 1 \
-            --tools "Read Glob Grep Skill" --out .factory/triage
+            --tools "Read,Glob,Grep,Skill" --out .factory/triage
 
       - uses: actions/upload-artifact@v4
         if: always()

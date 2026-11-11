@@ -82,7 +82,7 @@ jobs:
           factory/scripts/claude-run.sh --stage smoke \
             --prompt-file .factory/prompt.md --schema factory/schemas/verification.json \
             --model "${{ vars.VERIFY_MODEL || 'claude-sonnet-5-5' }}" --budget 3 \
-            --tools "Read Skill mcp__playwright" --mcp-config factory/mcp/playwright.json \
+            --tools "Read,Skill,mcp__playwright" --mcp-config factory/mcp/playwright.json \
             --out .factory/verification
       - uses: actions/upload-artifact@v4
         if: always()

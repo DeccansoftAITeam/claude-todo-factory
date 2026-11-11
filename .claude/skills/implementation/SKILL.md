@@ -31,7 +31,10 @@ commit, push, or call GitHub: the workflow commits your changes and opens the PR
 4. Tests (required):
    - Unit tests in `tests/unit/` for new logic.
    - A Playwright test in `tests/e2e/` per acceptance criterion.
-5. Run `npm test` and `npm run test:e2e`. Fix until both pass. If you cannot make
+5. Run `npm test` and `npm run test:e2e`. Fix until both pass.
+   **Shell rules:** your Bash access is an allowlist. Run each command on its own,
+   exactly as written (`npm test`, `npm run test:e2e`, `npx playwright test tests/e2e/x.spec.js`),
+   from the repo root. Do not use `cd`, `&&`, `;`, pipes or redirects. Those are denied. If you cannot make
    them pass, return `status: "blocked"` and explain.
 6. Run `git status` / `git diff --stat` to confirm only intended files changed.
    Do not touch `.github/`, `factory/`, `.claude/`, `specs/`, or `package.json`

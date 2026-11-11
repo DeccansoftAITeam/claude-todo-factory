@@ -10,7 +10,7 @@
 #
 # Usage:
 #   claude-run.sh --stage triage --prompt-file p.md --schema factory/schemas/triage.json \
-#     --model claude-sonnet-5-5 --budget 1 --tools "Read Glob Grep" [--mcp-config f.json] \
+#     --model claude-sonnet-5-5 --budget 1 --tools "Read,Glob,Grep" [--mcp-config f.json] \
 #     --out .factory/triage
 set -euo pipefail
 
@@ -42,8 +42,8 @@ args=(-p "$(cat "$prompt_file")"
   --json-schema "$(cat "$schema")"
   --max-budget-usd "$budget"
   --permission-mode dontAsk)
-# shellcheck disable=SC2206
-[[ -n "$tools" ]] && args+=(--allowedTools $tools)
+# One comma-separated argument: rules like "Bash(npm test:*)" contain spaces.
+[[ -n "$tools" ]] && args+=(--allowedTools "$tools")
 [[ -n "$mcp" ]] && args+=(--mcp-config "$mcp" --strict-mcp-config)
 
 echo "::group::claude -p ($stage, $model, budget \$$budget)"

@@ -1,7 +1,8 @@
 name: "Factory 3 · Review, verify, merge"
 
 # For one PR: tests, Azure SWA preview deploy, Claude review, Claude verification
-# engine against the preview URL, then the gate. All green => squash-merge and
+# engine against the preview URL, then the gate. Dispatched by implement.yml
+# (or manually: gh workflow run pipeline.yml -f pr=N). All green => squash-merge and
 # dispatch the production deploy. Anything red => label factory:needs-human.
 
 on:
@@ -10,8 +11,6 @@ on:
       pr:
         description: Pull request number
         required: true
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 
 # One PR at a time: they share the single `preview` SWA environment and merge serially.
 concurrency:
@@ -19,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PR: ${{ github.event.pull_request.number || inputs.pr }}
+  PR: ${{ inputs.pr }}
 
 jobs:
   context:

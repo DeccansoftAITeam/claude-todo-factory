@@ -2,7 +2,10 @@ name: Setup factory runner
 description: Node, project deps, Claude Code CLI, and (optionally) Playwright Chromium.
 inputs:
   browsers:
-    description: Install Playwright Chromium
+    description: Install Playwright Chromium (for the e2e test suite)
+    default: "false"
+  verifier:
+    description: Prepare the verification engine (Playwright MCP + ffmpeg for video; uses the runner's Chrome)
     default: "false"
 runs:
   using: composite
@@ -18,5 +21,9 @@ runs:
     - if: inputs.browsers == 'true'
       shell: bash
       run: npx playwright install --with-deps chromium
+    - if: inputs.verifier == 'true'
+      shell: bash
+      # Run outside the repo so npx resolves the MCP's own playwright, not the project's @playwright/test.
+      run: cd "$RUNNER_TEMP" && npx -y -p @playwright/mcp@0.0.85 playwright install --with-deps ffmpeg
     - shell: bash
       run: chmod +x factory/scripts/*.sh && mkdir -p .factory/context

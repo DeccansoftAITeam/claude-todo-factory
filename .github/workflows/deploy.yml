@@ -55,6 +55,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-factory
+        with:
+          verifier: "true"
       - name: Collect criteria of the shipped issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,6 +103,6 @@ jobs:
           factory/scripts/verification-report.sh .factory/verification/output.json "$base" "$run_url" \
             "Production smoke verification" .factory/evidence > smoke.md
           cat smoke.md >> "$GITHUB_STEP_SUMMARY"
-          [[ -n "${PR:-}" ]] && gh pr comment "$PR" --body-file smoke.md
-          [[ -n "${ISSUE:-}" ]] && gh issue comment "$ISSUE" --body "🚀 Shipped to production: ${{ needs.deploy.outputs.url }} — smoke verification: \`$(jq -r .result .factory/verification/output.json)\`"
+          if [[ -n "${PR:-}" ]]; then gh pr comment "$PR" --body-file smoke.md; fi
+          if [[ -n "${ISSUE:-}" ]]; then gh issue comment "$ISSUE" --body "🚀 Shipped to production: ${{ needs.deploy.outputs.url }} — smoke verification: \`$(jq -r .result .factory/verification/output.json)\`"; fi
           [[ "$(jq -r .result .factory/verification/output.json)" == "pass" ]]

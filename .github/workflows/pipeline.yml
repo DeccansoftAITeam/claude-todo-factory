@@ -292,6 +292,7 @@ jobs:
           gh pr comment "$PR" --body "🟢 **Factory gate green** (tests ✅ · review ✅ · verification ✅). Auto-merging and deploying to production."
           gh pr merge "$PR" --squash
           gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$BRANCH" || true
+          if [[ -n "$ISSUE" ]]; then gh issue close "$ISSUE" --reason completed --comment "✅ Merged in #${PR} by the factory gate." || true; fi
           gh workflow run deploy.yml --ref main -f pr="$PR" -f issue="$ISSUE"
 
       - name: Hand off to a human

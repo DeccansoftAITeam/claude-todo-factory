@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["approve", "request_changes"] },
+    "summary": { "type": "string", "description": "Markdown review summary." },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "severity", "body"],
+        "properties": {
+          "path": { "type": "string" },
+          "line": { "type": "integer", "description": "Line number in the NEW version of the file." },
+          "severity": { "type": "string", "enum": ["blocking", "suggestion", "nit"] },
+          "body": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+name: Setup factory runner
+description: Node, project deps, Claude Code CLI, and (optionally) Playwright Chromium.
+inputs:
+  browsers:
+    description: Install Playwright Chromium
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+    - shell: bash
+      run: npm ci --no-audit --no-fund
+    - shell: bash
+      run: npm install -g @anthropic-ai/claude-code@2.1.322 && claude --version
+    - if: inputs.browsers == 'true'
+      shell: bash
+      run: npx playwright install --with-deps chromium
+    - shell: bash
+      run: chmod +x factory/scripts/*.sh && mkdir -p .factory/context

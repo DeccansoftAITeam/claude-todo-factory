@@ -1,0 +1,106 @@
+name: "Factory 4 · Deploy production + smoke verify"
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**"]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Merged PR number (optional, for reporting)
+        required: false
+      issue:
+        description: Issue number (optional, for reporting)
+        required: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ github.token }}
+          action: upload
+          app_location: app
+          output_location: ""
+          skip_app_build: true
+
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-factory
+      - name: Collect criteria of the shipped issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          echo '{"acceptance_criteria":[]}' > .factory/context/criteria.json
+          if [[ -n "${ISSUE:-}" ]]; then
+            marker=$(gh issue view "$ISSUE" --json comments -q '[.comments[].body | capture("<!-- factory:criteria (?<c>[A-Za-z0-9+/=]+) -->").c] | last // empty')
+            [[ -n "$marker" ]] && echo "$marker" | base64 -d > .factory/context/criteria.json
+          fi
+          cat .factory/context/criteria.json
+      - name: Claude headless · verification engine (production smoke)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          URL: ${{ needs.deploy.outputs.url }}
+        run: |
+          mkdir -p .factory/evidence
+          cat > .factory/prompt.md <<EOF
+          Use the verify-behavior skill in **smoke** mode against PRODUCTION: ${URL}
+          Run SMOKE1-SMOKE3, then every acceptance criterion in .factory/context/criteria.json (ids AC1, AC2, ...), if any.
+          EOF
+          factory/scripts/claude-run.sh --stage smoke \
+            --prompt-file .factory/prompt.md --schema factory/schemas/verification.json \
+            --model "${{ vars.VERIFY_MODEL || 'claude-sonnet-5-5' }}" --budget 3 \
+            --tools "Read Skill mcp__playwright" --mcp-config factory/mcp/playwright.json \
+            --out .factory/verification
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: production-smoke
+          path: |
+            .factory/verification/
+            .factory/evidence/
+      - name: Report
+        if: always() && hashFiles('.factory/verification/output.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          base=$(factory/scripts/publish-evidence.sh .factory/evidence "prod/run-${GITHUB_RUN_ID}")
+          factory/scripts/verification-report.sh .factory/verification/output.json "$base" "$run_url" \
+            "Production smoke verification" .factory/evidence > smoke.md
+          cat smoke.md >> "$GITHUB_STEP_SUMMARY"
+          [[ -n "${PR:-}" ]] && gh pr comment "$PR" --body-file smoke.md
+          [[ -n "${ISSUE:-}" ]] && gh issue comment "$ISSUE" --body "🚀 Shipped to production: ${{ needs.deploy.outputs.url }} — smoke verification: \`$(jq -r .result .factory/verification/output.json)\`"
+          [[ "$(jq -r .result .factory/verification/output.json)" == "pass" ]]

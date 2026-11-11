@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "pr_title", "pr_body", "summary", "tests_run"],
+  "properties": {
+    "status": { "type": "string", "enum": ["done", "blocked"] },
+    "pr_title": { "type": "string", "description": "Conventional-commit style title, e.g. 'feat: filter todos by status'." },
+    "pr_body": { "type": "string", "description": "Markdown PR description: what changed, why, how it was tested. Do not include 'Closes #N'; the workflow adds it." },
+    "summary": { "type": "string", "description": "If blocked, why. Otherwise a one-line summary." },
+    "tests_run": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "passed"],
+        "properties": { "command": { "type": "string" }, "passed": { "type": "boolean" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,301 @@
+name: "Factory 3 · Review, verify, merge"
+
+# For one PR: tests, Azure SWA preview deploy, Claude review, Claude verification
+# engine against the preview URL, then the gate. All green => squash-merge and
+# dispatch the production deploy. Anything red => label factory:needs-human.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        required: true
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# One PR at a time: they share the single `preview` SWA environment and merge serially.
+concurrency:
+  group: factory-pipeline
+  cancel-in-progress: false
+
+env:
+  PR: ${{ github.event.pull_request.number || inputs.pr }}
+
+jobs:
+  context:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      sha: ${{ steps.ctx.outputs.sha }}
+      issue: ${{ steps.ctx.outputs.issue }}
+      branch: ${{ steps.ctx.outputs.branch }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - id: ctx
+        run: |
+          mkdir -p ctx
+          gh pr view "$PR" --json number,title,body,headRefName,headRefOid,baseRefName,url,isDraft > ctx/pr.json
+          gh pr diff "$PR" > ctx/pr.diff
+          issue=$(jq -r '.body' ctx/pr.json | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -1 | grep -oE '[0-9]+' || true)
+          if [[ -n "$issue" ]]; then
+            gh issue view "$issue" --json number,title,body,comments,url > ctx/issue.json
+            # Latest triage marker holds the acceptance criteria.
+            marker=$(jq -r '[.comments[].body | capture("<!-- factory:criteria (?<c>[A-Za-z0-9+/=]+) -->").c] | last // empty' ctx/issue.json)
+            if [[ -n "$marker" ]]; then echo "$marker" | base64 -d > ctx/criteria.json; fi
+          else
+            echo '{}' > ctx/issue.json
+          fi
+          [[ -s ctx/criteria.json ]] || echo '{"acceptance_criteria":["The PR description's described behavior works in the browser."],"ui_change":true}' > ctx/criteria.json
+          echo "sha=$(jq -r .headRefOid ctx/pr.json)" >> "$GITHUB_OUTPUT"
+          echo "branch=$(jq -r .headRefName ctx/pr.json)" >> "$GITHUB_OUTPUT"
+          echo "issue=$issue" >> "$GITHUB_OUTPUT"
+          cat ctx/criteria.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: context
+          path: ctx/
+
+  checks:
+    needs: context
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard protected paths
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -E '^(\.github/|factory/|\.claude/|\.specify/)'; then
+            echo "::error::PR changes factory-protected paths; needs a human."; exit 1
+          fi
+      - uses: ./.github/actions/setup-factory
+        with:
+          browsers: "true"
+      - run: npm test
+      - run: npm run test:e2e
+        env:
+          CI: "true"
+
+  preview:
+    needs: context
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.sha }}
+          persist-credentials: false
+      - name: Deploy PR to Azure SWA preview environment
+        id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ github.token }}
+          action: upload
+          app_location: app
+          output_location: ""
+          skip_app_build: true
+          deployment_environment: preview
+
+  review:
+    needs: context
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.context.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-factory
+      - uses: actions/download-artifact@v4
+        with:
+          name: context
+          path: .factory/context
+      - name: Claude headless · review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+        run: |
+          cat > .factory/prompt.md <<EOF
+          Use the review-pr skill to review pull request #${PR} of ${GITHUB_REPOSITORY}.
+          Context: .factory/context/pr.json, .factory/context/pr.diff, .factory/context/issue.json,
+          acceptance criteria in .factory/context/criteria.json.
+          EOF
+          factory/scripts/claude-run.sh --stage review \
+            --prompt-file .factory/prompt.md --schema factory/schemas/review.json \
+            --model "${{ vars.REVIEW_MODEL || 'claude-opus-5-5' }}" --budget 3 \
+            --tools "Read Glob Grep Skill" --out .factory/review
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: review
+          path: .factory/review/
+
+  verify:
+    needs: [context, preview]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      # Trusted checkout: the verification engine's skill + MCP config come from main.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: ./.github/actions/setup-factory
+      - uses: actions/download-artifact@v4
+        with:
+          name: context
+          path: .factory/context
+      - name: Wait for preview to serve this commit
+        env:
+          URL: ${{ needs.preview.outputs.url }}
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL") && [[ "$code" == "200" ]] && break
+            sleep 5
+          done
+          echo "preview $URL -> $code"
+      - name: Claude headless · verification engine
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          URL: ${{ needs.preview.outputs.url }}
+        run: |
+          mkdir -p .factory/evidence
+          cat > .factory/prompt.md <<EOF
+          Use the verify-behavior skill in **verify** mode.
+          Target URL (Azure Static Web Apps preview for PR #${PR}): ${URL}
+          Acceptance criteria to check, in order (ids AC1, AC2, ...): .factory/context/criteria.json
+          Also include SMOKE2 from the skill as a regression check.
+          EOF
+          factory/scripts/claude-run.sh --stage verification \
+            --prompt-file .factory/prompt.md --schema factory/schemas/verification.json \
+            --model "${{ vars.VERIFY_MODEL || 'claude-sonnet-5-5' }}" --budget 3 \
+            --tools "Read Skill mcp__playwright" --mcp-config factory/mcp/playwright.json \
+            --out .factory/verification
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification
+          path: |
+            .factory/verification/
+            .factory/evidence/
+
+  gate:
+    needs: [context, checks, preview, review, verify]
+    if: always() && needs.context.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE: ${{ needs.context.outputs.issue }}
+      BRANCH: ${{ needs.context.outputs.branch }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: review
+          path: review
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: verification
+          path: verification
+
+      - name: Publish review on the PR
+        if: hashFiles('review/output.json') != ''
+        run: |
+          sha="${{ needs.context.outputs.sha }}"
+          jq --arg sha "$sha" '{
+              commit_id: $sha, event: "COMMENT", body: .summary,
+              comments: [.findings[] | {path, line, side: "RIGHT",
+                body: ((if .severity=="blocking" then "🚨 **[BLOCKING]** " elif .severity=="suggestion" then "💡 **[SUGGESTION]** " else "🧹 **[NIT]** " end) + .body)}]
+            }' review/output.json > review.json
+          if ! gh api "repos/$GH_REPO/pulls/$PR/reviews" --input review.json > /dev/null; then
+            echo "::warning::Inline anchors rejected; posting findings in the body instead."
+            jq '{commit_id, event, body: (.body + "\n\n" + ([.comments[] | "- `\(.path):\(.line)` \(.body)"] | join("\n")))}' review.json > review-flat.json
+            gh api "repos/$GH_REPO/pulls/$PR/reviews" --input review-flat.json > /dev/null
+          fi
+
+      - name: Publish verification evidence
+        if: hashFiles('verification/verification/output.json') != ''
+        run: |
+          base=$(GITHUB_REPOSITORY="$GH_REPO" factory/scripts/publish-evidence.sh verification/evidence "pr-${PR}/run-${GITHUB_RUN_ID}")
+          factory/scripts/verification-report.sh verification/verification/output.json "$base" "$RUN_URL" \
+            "Verification engine (Azure SWA preview)" verification/evidence > verify.md
+          gh pr comment "$PR" --body-file verify.md
+
+      - name: Gate
+        id: gate
+        run: |
+          reasons=()
+          [[ "${{ needs.checks.result }}" == "success" ]] || reasons+=("tests: ${{ needs.checks.result }}")
+          [[ "${{ needs.preview.result }}" == "success" ]] || reasons+=("preview deploy: ${{ needs.preview.result }}")
+          if [[ -f review/output.json ]]; then
+            [[ "$(jq -r .verdict review/output.json)" == "approve" ]] || reasons+=("review: request_changes")
+            [[ "$(jq '[.findings[] | select(.severity=="blocking")] | length' review/output.json)" == "0" ]] || reasons+=("review: blocking findings")
+          else reasons+=("review: no output (${{ needs.review.result }})"); fi
+          if [[ -f verification/verification/output.json ]]; then
+            [[ "$(jq -r .result verification/verification/output.json)" == "pass" ]] || reasons+=("verification: $(jq -r .result verification/verification/output.json)")
+            if ! problems=$(factory/scripts/check-evidence.sh verification/verification/output.json verification/evidence); then
+              reasons+=("verification evidence missing: $(echo "$problems" | paste -sd ';' -)")
+            fi
+          else reasons+=("verification: no output (${{ needs.verify.result }})"); fi
+          if (( ${#reasons[@]} == 0 )); then echo "green=true" >> "$GITHUB_OUTPUT"; else
+            echo "green=false" >> "$GITHUB_OUTPUT"
+            printf -- '- %s\n' "${reasons[@]}" > reasons.md
+          fi
+          {
+            echo "### Gate"; echo "| gate | result |"; echo "|---|---|"
+            echo "| tests | ${{ needs.checks.result }} |"
+            echo "| preview | ${{ needs.preview.result }} |"
+            echo "| review | $(jq -r .verdict review/output.json 2>/dev/null || echo missing) |"
+            echo "| verification | $(jq -r .result verification/verification/output.json 2>/dev/null || echo missing) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Auto-merge and dispatch production deploy
+        if: steps.gate.outputs.green == 'true'
+        run: |
+          gh pr comment "$PR" --body "🟢 **Factory gate green** (tests ✅ · review ✅ · verification ✅). Auto-merging and deploying to production."
+          gh pr merge "$PR" --squash
+          gh api -X DELETE "repos/$GH_REPO/git/refs/heads/$BRANCH" || true
+          gh workflow run deploy.yml --ref main -f pr="$PR" -f issue="$ISSUE"
+
+      - name: Hand off to a human
+        if: steps.gate.outputs.green != 'true'
+        run: |
+          gh label create factory:needs-human --color d93f0b --force
+          gh pr edit "$PR" --add-label factory:needs-human
+          { echo "🟠 **Factory gate red**: not merging. A human needs to look."; echo; cat reasons.md; echo; echo "[Pipeline run]($RUN_URL)"; } > body.md
+          gh pr comment "$PR" --body-file body.md

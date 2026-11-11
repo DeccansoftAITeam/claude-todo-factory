@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["label", "summary", "comment", "acceptance_criteria", "ui_change"],
+  "properties": {
+    "label": { "type": "string", "enum": ["ready-to-implement", "ready-to-spec", "needs-info", "wait-to-implement"] },
+    "summary": { "type": "string", "description": "One-sentence restatement of the request." },
+    "comment": { "type": "string", "description": "Markdown triage comment to post on the issue." },
+    "acceptance_criteria": {
+      "type": "array",
+      "description": "Testable criteria the verification engine will check. Empty unless ready-to-implement.",
+      "items": { "type": "string" }
+    },
+    "ui_change": { "type": "boolean", "description": "True when the change is user-visible and needs browser verification." }
+  }
+}

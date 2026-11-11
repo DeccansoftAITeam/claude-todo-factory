@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["result", "target_url", "summary", "criteria"],
+  "properties": {
+    "result": { "type": "string", "enum": ["pass", "fail", "inconclusive"] },
+    "target_url": { "type": "string" },
+    "summary": { "type": "string" },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description", "status", "steps", "screenshots", "notes"],
+        "properties": {
+          "id": { "type": "string", "description": "AC1, AC2, ... or SMOKE1 ..." },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "fail", "inconclusive"] },
+          "steps": { "type": "array", "items": { "type": "string" }, "description": "What was actually done in the browser." },
+          "screenshots": { "type": "array", "items": { "type": "string" }, "description": "Screenshot file names saved in the evidence directory." },
+          "notes": { "type": "string", "description": "Observed vs expected." }
+        }
+      }
+    }
+  }
+}

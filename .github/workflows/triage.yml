@@ -1,0 +1,102 @@
+name: "Factory 1 · Triage"
+
+# Claude headless triages a new issue (read-only), the apply job writes the
+# label + comment, and ready-to-implement issues are dispatched to implement.yml.
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+
+concurrency:
+  group: triage-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: true
+
+env:
+  ISSUE: ${{ github.event.issue.number || inputs.issue }}
+
+jobs:
+  triage:
+    if: github.event_name == 'workflow_dispatch' || github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-factory
+
+      - name: Gather issue context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue view "$ISSUE" --json number,title,body,author,labels,comments,url > .factory/issue.json
+          gh issue list --state open --limit 50 --json number,title > .factory/open.json
+          jq --slurpfile open .factory/open.json '. + {open_issues: ($open[0] | map(select(.number != '"$ISSUE"')))}' \
+            .factory/issue.json > .factory/context/issue.json
+
+      - name: Write prompt
+        run: |
+          cat > .factory/prompt.md <<EOF
+          Use the triage skill to triage GitHub issue #${ISSUE} of ${GITHUB_REPOSITORY}.
+          The issue and the list of other open issues are in .factory/context/issue.json.
+          EOF
+
+      - name: Claude headless · triage
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+        run: |
+          factory/scripts/claude-run.sh --stage triage \
+            --prompt-file .factory/prompt.md --schema factory/schemas/triage.json \
+            --model "${{ vars.TRIAGE_MODEL || 'claude-sonnet-5-5' }}" --budget 1 \
+            --tools "Read Glob Grep Skill" --out .factory/triage
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: triage
+          path: .factory/triage/
+
+  apply:
+    needs: triage
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: triage
+          path: triage
+
+      - name: Apply label and comment
+        id: apply
+        run: |
+          out=triage/output.json
+          label=$(jq -r .label "$out")
+          for l in ready-to-implement ready-to-spec needs-info wait-to-implement; do
+            gh label create "$l" --color ededed --force >/dev/null
+            [[ "$l" != "$label" ]] && gh issue edit "$ISSUE" --remove-label "$l" >/dev/null 2>&1 || true
+          done
+          gh issue edit "$ISSUE" --add-label "$label"
+
+          # The hidden marker carries the acceptance criteria to the verification engine.
+          criteria=$(jq -c '{acceptance_criteria, ui_change}' "$out" | base64 -w0)
+          { jq -r .comment "$out"; echo; echo "<!-- factory:criteria $criteria -->"; } > comment.md
+          gh issue comment "$ISSUE" --body-file comment.md
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch implementation
+        if: steps.apply.outputs.label == 'ready-to-implement'
+        run: gh workflow run implement.yml --ref "${{ github.event.repository.default_branch }}" -f issue="$ISSUE"

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude Todo</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c2410c'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app-header">
+        <h1>Todo</h1>
+        <p class="tagline">Built and shipped by a Claude software factory.</p>
+      </header>
+
+      <form class="new-todo" data-testid="new-todo-form" autocomplete="off">
+        <label class="visually-hidden" for="new-todo">New todo</label>
+        <input id="new-todo" data-testid="new-todo-input" placeholder="What needs doing?" maxlength="200" autofocus />
+        <button type="submit" data-testid="add-todo">Add</button>
+      </form>
+
+      <section class="todos" aria-label="Todos">
+        <ul class="todo-list" data-testid="todo-list"></ul>
+        <p class="empty" data-testid="empty-state">Nothing to do. Add your first todo above.</p>
+      </section>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

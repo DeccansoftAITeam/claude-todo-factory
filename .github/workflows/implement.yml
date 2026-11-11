@@ -1,0 +1,152 @@
+name: "Factory 2 · Implement"
+
+# Claude headless implements the issue on the runner (edit + test only).
+# The open-pr job applies the patch, pushes factory/issue-N, opens the PR and
+# dispatches pipeline.yml. The agent never holds a write token.
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number
+        required: true
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: implement-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: false
+
+env:
+  ISSUE: ${{ github.event.issue.number || inputs.issue }}
+
+jobs:
+  implement:
+    # Human-applied label (bot-applied labels arrive via workflow_dispatch from triage).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'ready-to-implement' && github.event.sender.type != 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      issues: write # status comment only; the agent step gets no token
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-factory
+        with:
+          browsers: "true"
+
+      - name: Gather issue context and announce
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue view "$ISSUE" --json number,title,body,labels,comments,url > .factory/context/issue.json
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          gh issue comment "$ISSUE" --body "🛠️ **Factory implementation started** with Claude headless. Follow along: [run ${GITHUB_RUN_ID}](${run_url})"
+
+      - name: Write prompt
+        run: |
+          cat > .factory/prompt.md <<EOF
+          Use the implementation skill to implement GitHub issue #${ISSUE} of ${GITHUB_REPOSITORY}.
+          The issue, including the triage comment with acceptance criteria, is in .factory/context/issue.json.
+          EOF
+
+      - name: Claude headless · implementation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          CI: "true"
+        run: |
+          factory/scripts/claude-run.sh --stage implementation \
+            --prompt-file .factory/prompt.md --schema factory/schemas/implementation.json \
+            --model "${{ vars.IMPLEMENT_MODEL || 'claude-opus-5-5' }}" --budget 6 \
+            --tools "Read Edit Write Glob Grep Skill Bash(npm test) Bash(npm test:*) Bash(npm run test:*) Bash(npx vitest:*) Bash(npx playwright test:*) Bash(git status:*) Bash(git diff:*) Bash(ls:*)" \
+            --out .factory/implementation
+
+      - name: Guard, re-test and package the change
+        id: package
+        env:
+          CI: "true"
+        run: |
+          status=$(jq -r .status .factory/implementation/output.json)
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          [[ "$status" == "done" ]] || exit 0
+          git add -A -- . ':!.factory' ':!test-results' ':!playwright-report'
+          if git diff --cached --name-only | grep -E '^(\.github/|factory/|\.claude/|\.specify/|package(-lock)?\.json$)'; then
+            echo "::error::Agent modified protected paths"; exit 1
+          fi
+          git diff --cached --quiet && { echo "::error::Agent reported done but changed nothing"; exit 1; }
+          # Deterministic re-check: never trust the agent's own test report.
+          npm test
+          npm run test:e2e
+          git diff --cached --binary > .factory/implementation/changes.patch
+          git diff --cached --stat
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: implementation
+          path: .factory/implementation/
+
+      - name: Report blocked
+        if: steps.package.outputs.status == 'blocked'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          { echo "⛔ **Factory implementation blocked**"; echo; jq -r .summary .factory/implementation/output.json; } > body.md
+          gh issue comment "$ISSUE" --body-file body.md
+          gh label create factory:needs-human --color d93f0b --force
+          gh issue edit "$ISSUE" --add-label factory:needs-human
+    outputs:
+      status: ${{ steps.package.outputs.status }}
+
+  open-pr:
+    needs: implement
+    if: needs.implement.outputs.status == 'done'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: implementation
+          path: /tmp/impl
+
+      - name: Commit and push branch
+        run: |
+          branch="factory/issue-${ISSUE}"
+          git config user.name "claude-factory[bot]"
+          git config user.email "claude-factory@users.noreply.github.com"
+          git checkout -B "$branch"
+          git apply --index /tmp/impl/changes.patch
+          git commit -m "$(jq -r .pr_title /tmp/impl/output.json) (#${ISSUE})" \
+                     -m "Implemented by the Claude headless factory." \
+                     -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+          git push --force origin "$branch"
+          echo "BRANCH=$branch" >> "$GITHUB_ENV"
+
+      - name: Open or update PR and dispatch pipeline
+        run: |
+          { jq -r .pr_body /tmp/impl/output.json; echo; echo "Closes #${ISSUE}"; echo;
+            echo "---"; echo "🤖 Generated by the Claude headless software factory · [implementation run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"; } > body.md
+          title=$(jq -r .pr_title /tmp/impl/output.json)
+          gh label create factory --color 5319e7 --force
+          pr=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+          if [[ -z "$pr" ]]; then
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file body.md --label factory
+            pr=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')
+          else
+            gh pr edit "$pr" --title "$title" --body-file body.md
+          fi
+          gh issue comment "$ISSUE" --body "📬 Opened PR #${pr}. Running review + verification pipeline."
+          gh workflow run pipeline.yml --ref main -f pr="$pr"

@@ -1,12 +1,15 @@
-import { addTodo, toggleTodo, removeTodo } from './todo.js';
-import { loadTodos, saveTodos } from './storage.js';
+import { addTodo, toggleTodo, removeTodo, filterTodos, normalizeFilter } from './todo.js';
+import { loadTodos, saveTodos, loadFilter, saveFilter } from './storage.js';
 
 const form = document.querySelector('[data-testid="new-todo-form"]');
 const input = document.querySelector('[data-testid="new-todo-input"]');
 const list = document.querySelector('[data-testid="todo-list"]');
 const empty = document.querySelector('[data-testid="empty-state"]');
 
+const filterButtons = document.querySelectorAll('[data-testid="todo-filters"] [data-filter]');
+
 let todos = loadTodos();
+let filter = loadFilter();
 
 function setTodos(next) {
   todos = next;
@@ -44,9 +47,30 @@ function renderItem(todo) {
   return li;
 }
 
+const EMPTY_MESSAGES = {
+  all: 'Nothing to do. Add your first todo above.',
+  active: 'All done! Nothing left to do.',
+  completed: 'No completed todos yet. Tick one off to see it here.',
+};
+
+function setFilter(next) {
+  filter = normalizeFilter(next);
+  saveFilter(filter);
+  render();
+}
+
 function render() {
-  list.replaceChildren(...todos.map(renderItem));
-  empty.hidden = todos.length > 0;
+  const visible = filterTodos(todos, filter);
+  list.replaceChildren(...visible.map(renderItem));
+  empty.textContent = todos.length === 0 ? EMPTY_MESSAGES.all : EMPTY_MESSAGES[filter];
+  empty.hidden = visible.length > 0;
+  for (const button of filterButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.filter === filter));
+  }
+}
+
+for (const button of filterButtons) {
+  button.addEventListener('click', () => setFilter(button.dataset.filter));
 }
 
 form.addEventListener('submit', (event) => {

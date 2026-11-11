@@ -34,6 +34,20 @@ export function normalizeFilter(value) {
   return FILTERS.includes(value) ? value : 'all';
 }
 
+/** Returns 'light' or 'dark' for a valid value, otherwise null (no explicit choice). */
+export function normalizeTheme(value) {
+  return value === 'light' || value === 'dark' ? value : null;
+}
+
+/** Effective theme: an explicit choice wins over the OS preference. */
+export function resolveTheme(stored, prefersDark) {
+  return normalizeTheme(stored) ?? (prefersDark ? 'dark' : 'light');
+}
+
+export function toggleTheme(current) {
+  return current === 'dark' ? 'light' : 'dark';
+}
+
 /** @param {Todo[]} todos @param {string} filter @returns {Todo[]} */
 export function filterTodos(todos, filter) {
   switch (normalizeFilter(filter)) {

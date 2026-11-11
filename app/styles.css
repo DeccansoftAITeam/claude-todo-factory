@@ -12,7 +12,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #171614;
     --surface: #211f1c;
     --ink: #f1ede6;
@@ -23,6 +23,18 @@
     --done: #78726a;
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #171614;
+  --surface: #211f1c;
+  --ink: #f1ede6;
+  --muted: #a39d93;
+  --line: #34312c;
+  --accent: #fb923c;
+  --accent-ink: #1a1007;
+  --done: #78726a;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -36,7 +48,13 @@ body {
 }
 
 .app { max-width: 560px; margin: 0 auto; padding: 56px 16px; }
+.app-header { position: relative; }
 .app-header h1 { margin: 0; font-size: 2.5rem; letter-spacing: -0.03em; }
+.theme-toggle {
+  position: absolute; top: 0; right: 0; padding: 6px 12px; font: inherit; font-size: 0.9rem; cursor: pointer;
+  color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+}
+.theme-toggle:hover { border-color: var(--accent); }
 .tagline { margin: 4px 0 28px; color: var(--muted); }
 
 .new-todo { display: flex; gap: 8px; }

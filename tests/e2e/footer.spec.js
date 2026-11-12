@@ -12,7 +12,7 @@ async function add(page, title) {
 }
 
 const complete = (page, title) =>
-  page.getByTestId('todo-item').filter({ hasText: title }).getByTestId('todo-toggle').check();
+  page.getByTestId('todo-item').filter({ has: page.getByText(title, { exact: true }) }).getByTestId('todo-toggle').check();
 
 test('AC1: counter shows items left with singular form', async ({ page }) => {
   await add(page, 'A');

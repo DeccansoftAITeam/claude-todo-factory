@@ -1,11 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from '../../app/src/todo.js';
+import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted, normalizeCategory } from '../../app/src/todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter } from '../../app/src/storage.js';
 
 describe('todo logic', () => {
   it('adds a trimmed todo', () => {
     const todos = addTodo([], '  buy milk  ', 'a', 1);
-    expect(todos).toEqual([{ id: 'a', title: 'buy milk', completed: false, createdAt: 1 }]);
+    expect(todos).toEqual([{ id: 'a', title: 'buy milk', completed: false, createdAt: 1, category: 'Personal' }]);
+  });
+
+  it('stores the given category and falls back to Personal for invalid values', () => {
+    expect(addTodo([], 'x', 'a', 1, 'Professional')[0].category).toBe('Professional');
+    expect(addTodo([], 'x', 'a', 1, 'Bogus')[0].category).toBe('Personal');
+  });
+
+  it('normalizeCategory defaults legacy/invalid values to Personal', () => {
+    expect(normalizeCategory(undefined)).toBe('Personal');
+    expect(normalizeCategory('Professional')).toBe('Professional');
+    expect(normalizeCategory('nope')).toBe('Personal');
   });
 
   it('ignores empty and whitespace-only titles', () => {

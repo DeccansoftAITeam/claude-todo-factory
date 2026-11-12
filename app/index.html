@@ -18,6 +18,11 @@
       <form class="new-todo" data-testid="new-todo-form" autocomplete="off">
         <label class="visually-hidden" for="new-todo">New todo</label>
         <input id="new-todo" data-testid="new-todo-input" placeholder="What needs doing?" maxlength="200" autofocus />
+        <label class="visually-hidden" for="new-todo-category">Category</label>
+        <select id="new-todo-category" data-testid="category-select">
+          <option value="Personal" selected>Personal</option>
+          <option value="Professional">Professional</option>
+        </select>
         <button type="submit" data-testid="add-todo">Add</button>
       </form>
 

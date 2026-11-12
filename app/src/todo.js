@@ -8,11 +8,19 @@ export function newId() {
   return `${Date.now().toString(36)}-${counter.toString(36)}`;
 }
 
+export const CATEGORIES = ['Personal', 'Professional'];
+export const DEFAULT_CATEGORY = 'Personal';
+
+/** Valid category, otherwise the default (covers todos saved before categories existed). */
+export function normalizeCategory(value) {
+  return CATEGORIES.includes(value) ? value : DEFAULT_CATEGORY;
+}
+
 /** @param {Todo[]} todos @param {string} title @returns {Todo[]} */
-export function addTodo(todos, title, id = newId(), now = Date.now()) {
+export function addTodo(todos, title, id = newId(), now = Date.now(), category = DEFAULT_CATEGORY) {
   const trimmed = String(title ?? '').trim();
   if (!trimmed) return todos;
-  return [...todos, { id, title: trimmed, completed: false, createdAt: now }];
+  return [...todos, { id, title: trimmed, completed: false, createdAt: now, category: normalizeCategory(category) }];
 }
 
 /** @param {Todo[]} todos @param {string} id @returns {Todo[]} */

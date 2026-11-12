@@ -14,7 +14,7 @@ async function add(page, title) {
 async function seedAB(page) {
   await add(page, 'A');
   await add(page, 'B');
-  await page.getByTestId('todo-item').filter({ hasText: 'A' }).getByTestId('todo-toggle').check();
+  await page.getByTestId('todo-item').filter({ has: page.getByText('A', { exact: true }) }).getByTestId('todo-toggle').check();
 }
 
 test('AC1: three keyboard-accessible filter controls under the list, All highlighted on fresh load', async ({ page }) => {
@@ -101,7 +101,7 @@ test('AC5: completing or deleting under a filter updates the visible list immedi
 
   await page.getByTestId('filter-completed').click();
   await expect(page.getByTestId('todo-title')).toHaveText(['A', 'B']);
-  await page.getByTestId('todo-item').filter({ hasText: 'A' }).getByTestId('todo-remove').click();
+  await page.getByTestId('todo-item').filter({ has: page.getByText('A', { exact: true }) }).getByTestId('todo-remove').click();
   await expect(page.getByTestId('todo-title')).toHaveText(['B']);
   await page.getByTestId('todo-toggle').click();
   await expect(page.getByTestId('todo-item')).toHaveCount(0);

@@ -1,6 +1,6 @@
 import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from './todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter, loadTheme, saveTheme } from './storage.js';
-import { resolveTheme, toggleTheme } from './todo.js';
+import { resolveTheme, toggleTheme, normalizeCategory } from './todo.js';
 
 const themeBtn = document.querySelector('[data-testid="theme-toggle"]');
 let theme = resolveTheme(loadTheme(), window.matchMedia?.('(prefers-color-scheme: dark)').matches);
@@ -20,6 +20,7 @@ applyTheme();
 
 const form = document.querySelector('[data-testid="new-todo-form"]');
 const input = document.querySelector('[data-testid="new-todo-input"]');
+const categorySelect = document.querySelector('[data-testid="category-select"]');
 const list = document.querySelector('[data-testid="todo-list"]');
 const empty = document.querySelector('[data-testid="empty-state"]');
 
@@ -76,7 +77,12 @@ function renderItem(todo) {
   remove.textContent = '×';
   remove.addEventListener('click', () => setTodos(removeTodo(todos, todo.id)));
 
-  li.append(checkbox, label, remove);
+  const badge = document.createElement('span');
+  badge.className = 'todo-category';
+  badge.dataset.testid = 'todo-category';
+  badge.textContent = normalizeCategory(todo.category);
+
+  li.append(checkbox, label, badge, remove);
   return li;
 }
 
@@ -140,7 +146,7 @@ for (const button of filterButtons) {
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
-  setTodos(addTodo(todos, input.value));
+  setTodos(addTodo(todos, input.value, undefined, undefined, categorySelect.value));
   input.value = '';
   input.focus();
 });

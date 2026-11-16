@@ -10,7 +10,11 @@
   <body>
     <main class="app">
       <header class="app-header">
-        <button type="button" class="theme-toggle" data-testid="theme-toggle" aria-label="Switch to dark mode">Dark</button>
+        <select class="theme-toggle" data-testid="theme-toggle" aria-label="Theme: System Default">
+          <option value="system">System Default</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
         <h1>Todo</h1>
         <p class="tagline">Built and shipped by a Claude software factory.</p>
       </header>

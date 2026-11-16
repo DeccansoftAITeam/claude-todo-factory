@@ -1,20 +1,24 @@
 import { addTodo, toggleTodo, removeTodo, editTodo, filterTodos, normalizeFilter, countActive, clearCompleted } from './todo.js';
 import { loadTodos, saveTodos, loadFilter, saveFilter, loadTheme, saveTheme } from './storage.js';
-import { resolveTheme, toggleTheme, normalizeCategory } from './todo.js';
+import { resolveTheme, normalizeTheme, normalizeCategory } from './todo.js';
 
-const themeBtn = document.querySelector('[data-testid="theme-toggle"]');
-let theme = resolveTheme(loadTheme(), window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+const themeSelect = document.querySelector('[data-testid="theme-toggle"]');
+const darkQuery = window.matchMedia?.('(prefers-color-scheme: dark)');
+const THEME_LABELS = { light: 'Light', dark: 'Dark', system: 'System Default' };
+let themeChoice = normalizeTheme(loadTheme()) ?? 'system';
 
 function applyTheme() {
-  document.documentElement.dataset.theme = theme;
-  const dark = theme === 'dark';
-  themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
-  themeBtn.textContent = dark ? 'Light' : 'Dark';
+  document.documentElement.dataset.theme = resolveTheme(themeChoice, Boolean(darkQuery?.matches));
+  themeSelect.value = themeChoice;
+  themeSelect.setAttribute('aria-label', `Theme: ${THEME_LABELS[themeChoice]}`);
 }
-themeBtn.addEventListener('click', () => {
-  theme = toggleTheme(theme);
-  saveTheme(theme);
+themeSelect.addEventListener('change', () => {
+  themeChoice = normalizeTheme(themeSelect.value) ?? 'system';
+  saveTheme(themeChoice);
   applyTheme();
+});
+darkQuery?.addEventListener?.('change', () => {
+  if (themeChoice === 'system') applyTheme();
 });
 applyTheme();
 

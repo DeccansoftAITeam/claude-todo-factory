@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeTheme, resolveTheme, toggleTheme } from '../../app/src/todo.js';
+import { normalizeTheme, resolveTheme } from '../../app/src/todo.js';
 import { loadTheme, saveTheme } from '../../app/src/storage.js';
 
 const fakeStorage = () => {
@@ -20,15 +20,19 @@ describe('theme', () => {
     expect(resolveTheme(null, true)).toBe('dark');
     expect(resolveTheme(null, false)).toBe('light');
   });
-  it('toggles', () => {
-    expect(toggleTheme('light')).toBe('dark');
-    expect(toggleTheme('dark')).toBe('light');
+  it('system follows the OS preference', () => {
+    expect(normalizeTheme('system')).toBe('system');
+    expect(resolveTheme('system', true)).toBe('dark');
+    expect(resolveTheme('system', false)).toBe('light');
   });
   it('persists', () => {
     const s = fakeStorage();
     expect(loadTheme(s)).toBeNull();
     saveTheme('dark', s);
     expect(loadTheme(s)).toBe('dark');
+    saveTheme('system', s);
+    expect(loadTheme(s)).toBe('system');
+    saveTheme('dark', s);
     saveTheme('bogus', s);
     expect(loadTheme(s)).toBe('dark');
   });
